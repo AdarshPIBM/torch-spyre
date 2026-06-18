@@ -21,9 +21,11 @@ from .constants import DEVICE_NAME, DISTRIBUTED_BACKEND_NAME
 
 from . import memory
 from . import profiler
+import time
 
 _runtime_init_lock = threading.Lock()
 
+PRJPT_DEBUG = int(os.getenv("PRJPT_DEBUG", "0"))
 
 class _SpyreImpl:
     def __init__(self):
@@ -73,9 +75,14 @@ class _SpyreImpl:
             _patch_tensor_for_spyre()
 
             from torch_spyre._inductor import _autoload as ts_autoload
-
-            ts_autoload()
-
+            if PRJPT_DEBUG:
+                print("PROFILING - Starting autoload of inductor patches...")
+                start = time.perf_counter()
+                ts_autoload()
+                elapsed = time.perf_counter() - start
+                print(f"PROFILING - Finished autoload of inductor patches in {elapsed:.9f} seconds.")
+            else:
+                ts_autoload()
             # Permanently register PrivateUse1 kernels for DispatchKeys
             # so that eager-mode dispatch reaches the Spyre implementations
             # without requiring global monkey-patching.

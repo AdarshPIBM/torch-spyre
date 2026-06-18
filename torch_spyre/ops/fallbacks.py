@@ -290,3 +290,17 @@ def spyre__max_default_int64_fallback(input, **kwargs):
     This avoids recursive decomposition by directly calling torch.max on CPU.
     """
     return torch.max(input, **kwargs)
+
+
+@register_fallback(["aten::uniform_"])
+def spyre__uniform_fallback(self, from_=0.0, to=1.0, generator=None):
+    """
+    CPU fallback for torch.uniform_().
+
+    Generates uniform random values on CPU and copies them to the Spyre tensor.
+    """
+    print("PROFILING - Registering the fallback for uniform")
+    cpu_tmp = torch.empty_like(self, device="cpu", memory_format=torch.preserve_format)
+    cpu_tmp.uniform_(from_, to, generator=generator)
+    self.copy_(cpu_tmp)
+    return self

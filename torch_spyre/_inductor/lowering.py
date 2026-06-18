@@ -55,21 +55,40 @@ def register_spyre_lowering(
     lowering_dict=spyre_lowerings,
 ):
     name = name or op.__name__
-
     ensure_default_handler(name)
-
     lowering.register_op_dtype_propagation_rules(
         name=name,
         type_promotion_kind=type_promotion_kind,
         override_return_dtype=override_return_dtype,
     )
-    return lowering.register_lowering(
-        op,
-        broadcast=broadcast,
-        type_promotion_kind=type_promotion_kind,
-        convert_input_to_bool=convert_input_to_bool,
-        lowering_dict=lowering_dict,
-    )
+    
+    # Wrap the lowering function with timing
+    def timing_wrapper(original_lowering):
+        import time
+        import functools
+        
+        @functools.wraps(original_lowering)
+        def timed_lowering(*args, **kwargs):
+            start = time.perf_counter()
+            result = original_lowering(*args, **kwargs)
+            elapsed = time.perf_counter() - start
+            print(f"Lowering {name}: {elapsed:.6f}s")
+            return result
+        
+        return timed_lowering
+    
+    # Register with timing wrapper
+    def decorator(fn):
+        timed_fn = timing_wrapper(fn)
+        return lowering.register_lowering(
+            op,
+            broadcast=broadcast,
+            type_promotion_kind=type_promotion_kind,
+            convert_input_to_bool=convert_input_to_bool,
+            lowering_dict=lowering_dict,
+        )(timed_fn)
+    
+    return decorator
 
 
 # Implicit fallback to an eager op does not become effective when lowering of

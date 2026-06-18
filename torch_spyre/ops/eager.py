@@ -139,6 +139,7 @@ def spyre__normal_(self, mean=0.0, std=1.0, *, generator=None):
     # cpu_tmp = self.to("cpu")
 
     # Create a new tensor on cpu itself to avoid unnecessary data copy.
+    print("PROFILING - Running the normal registration function...")
     cpu_tmp = torch.empty_like(self, device="cpu", memory_format=torch.preserve_format)
     cpu_tmp.normal_(mean, std, generator=generator)
     self.copy_(cpu_tmp)
@@ -156,18 +157,19 @@ def spyre__zero_(self: torch.Tensor) -> torch.Tensor:
     return self
 
 
-@torch.library.register_kernel("aten::uniform_", "spyre")  # type:ignore
-def spyre__uniform_(self, from_=0.0, to=1.0, generator=None):
-    # Create a new tensor on cpu
-    cpu_tmp = torch.empty_like(self, device="cpu", memory_format=torch.preserve_format)
+# @torch.library.register_kernel("aten::uniform_", "spyre")  # type:ignore
+# def spyre__uniform_(self, from_=0.0, to=1.0, generator=None):
+#     # Create a new tensor on cpu
+    # print("PROFILING - Running the uniform registration function...")
+#     cpu_tmp = torch.empty_like(self, device="cpu", memory_format=torch.preserve_format)
 
-    # Fill the CPU tensor with uniform random values
-    cpu_tmp.uniform_(from_, to, generator=generator)
+#     # Fill the CPU tensor with uniform random values
+#     cpu_tmp.uniform_(from_, to, generator=generator)
 
-    # Copy the CPU tensor back to the spyre device
-    self.copy_(cpu_tmp)
+#     # Copy the CPU tensor back to the spyre device
+#     self.copy_(cpu_tmp)
 
-    return self
+#     return self
 
 
 @torch.library.register_kernel("aten::_local_scalar_dense", "spyre")

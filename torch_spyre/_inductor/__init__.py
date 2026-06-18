@@ -18,11 +18,14 @@ from . import config
 
 import threading
 from functools import wraps
+import time
+import os
 
 from .propagate_hints import spyre_hint, get_op_hints  # noqa: F401
 
 _autoload_lock = threading.Lock()
 
+PRJPT_DEBUG = int(os.getenv("PRJPT_DEBUG", "0"))
 
 def enable_spyre_compile_fx_wrapper():
     import torch._inductor.compile_fx as cfx
@@ -109,7 +112,6 @@ def enable_spyre_compile_fx_wrapper():
                     # and yielded as `spyre_context_decompositions` from the CM
 
                     kwargs["decompositions"] = spyre_context_decompositions
-
                     return _orig(
                         gm,
                         example_inputs,
@@ -118,8 +120,13 @@ def enable_spyre_compile_fx_wrapper():
                     )
 
             return _orig(gm, example_inputs, *args, **kwargs)
-
+        start_time = time.perf_counter()
+        if PRJPT_DEBUG:
+            print("PROFILING - Starting the decomposition operations...")
         cfx.compile_fx = _wrapper
+        elapsed = time.perf_counter() - start_time
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Finished patching compile_fx in {elapsed:.9f} seconds.")
         cfx._spyre_wrapped = True
 
 

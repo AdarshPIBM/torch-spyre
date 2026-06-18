@@ -18,6 +18,7 @@ from typing import Any
 import os
 import subprocess
 import torch
+import time
 
 from torch._inductor.runtime.runtime_utils import cache_dir
 from torch_spyre._inductor.logging_utils import get_inductor_logger
@@ -47,6 +48,7 @@ class SpyreAsyncCompile:
     def sdsc(
         self, kernel_name: str, specs: Sequence[OpSpec | LoopSpec | UnimplementedOp]
     ):
+        print("sdsc function started..")
         unimp = find_unimplemented(list(specs))
         if unimp is not None:
             logger.warning(
@@ -58,9 +60,16 @@ class SpyreAsyncCompile:
         output_dir = get_output_dir(kernel_name)
         generate_bundle(kernel_name, output_dir, specs)
 
+        # with open("/home/senuser/spyre_timings.txt", "w") as f:
+        #     f.write(f"{time.time()} time till frontend compilation.\n")
+        #     print("frontend compilation statement 1")
+        print(f"{time.perf_counter()} time till frontend compilation.")
         # Invoke backend compiler of SDSC Bundle
         with torch.profiler.record_function(f"dxp_standalone:{kernel_name}"):
             subprocess.run(["dxp_standalone", "--bundle", "-d", output_dir], check=True)
+        print(f"{time.perf_counter()} time till backend compilation.")
+        # with open("/home/senuser/spyre_timings.txt", "a") as f:
+        #     f.write(f"{time.time()} time till backend compilation.\n")
 
         return SpyreSDSCKernelRunner(kernel_name, output_dir)
 

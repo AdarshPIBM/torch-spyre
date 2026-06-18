@@ -67,7 +67,10 @@ from .deadcode_elimination import deadcode_elimination
 from .dedup_constants import dedup_and_promote_constants
 from .chunk_large_tensors import chunk_large_tensors
 from .coarse_tile import coarse_tile
+import time
+import os
 
+PRJPT_DEBUG = int(os.getenv("PRJPT_DEBUG", "0"))
 
 logger = get_inductor_logger("passes")
 
@@ -115,8 +118,15 @@ class CustomPreGradPasses:
     passes: List[Callable[[torch.fx.graph.Graph], None]] = []
 
     def __call__(self, graph: torch.fx.graph.Graph) -> None:
+        if PRJPT_DEBUG:
+            print("PROFILING - Running custom pre-grad passes...")
+        start = time.perf_counter()
         for p in self.passes:
             p(graph)
+        elapsed = time.perf_counter() - start
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Finished custom pre-grad passes in {elapsed:.9f} seconds.")
+
 
     def uuid(self) -> Optional[Any]:
         files = [inspect.getfile(c) for c in CustomPreGradPasses.passes]
@@ -136,8 +146,14 @@ class CustomPrePasses(CustomGraphPass):
     passes: List[Callable[[torch.fx.graph.Graph], None]] = [collect_spyre_hints]
 
     def __call__(self, graph: torch.fx.graph.Graph) -> None:
+        if PRJPT_DEBUG:
+            print("PROFILING - Running custom post grad - pre-passes...")
+        start = time.perf_counter()
         for p in CustomPrePasses.passes:
             _maybe_run_graph_pass(p, graph)
+        elapsed = time.perf_counter() - start
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Finished custom post grad - pre-passes in {elapsed:.9f} seconds.")
 
     def uuid(self) -> Optional[Any]:
         files = [inspect.getfile(c) for c in CustomPrePasses.passes]
@@ -162,8 +178,14 @@ class CustomPostPasses(CustomGraphPass):
     ]
 
     def __call__(self, graph: torch.fx.graph.Graph) -> None:
+        if PRJPT_DEBUG:
+            print("PROFILING - Running custom post grad - post-passes...")
+        start = time.perf_counter()
         for p in CustomPostPasses.passes:
             _maybe_run_graph_pass(p, graph)
+        elapsed = time.perf_counter() - start
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Finished custom post grad - post-passes in {elapsed:.9f} seconds.")
 
     def uuid(self) -> Optional[Any]:
         files = [inspect.getfile(c) for c in CustomPostPasses.passes]
@@ -187,8 +209,15 @@ def _maybe_run_scheduler_pass(
 
 class CustomNodePassBase(CustomGraphPass):
     def __call__(self, nodes: list[BaseSchedulerNode]) -> list[BaseSchedulerNode]:
+        pass_type = self.__class__.__name__ 
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Running custom node passes for {pass_type}...")
+        start = time.perf_counter()
         for _pass in self.get_passes():
             nodes = _maybe_run_scheduler_pass(_pass, nodes)
+        elapsed = time.perf_counter() - start
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Finished custom node passes for {pass_type} in {elapsed:.9f} seconds.")
         return nodes
 
     @abstractmethod
@@ -242,6 +271,9 @@ class CustomPreSchedulingPasses(CustomGraphPass):
     """
 
     def __call__(self, graph: GraphLowering) -> None:
+        if PRJPT_DEBUG:
+            print("PROFILING - Running custom pre-scheduling passes(that run on IR operations immediately before the Scheduler is constructed)...")
+        start = time.perf_counter()
         operations = graph.operations
         has_spyre_device = any(
             op.get_device() is not None and op.get_device().type == DEVICE_NAME
@@ -289,6 +321,9 @@ class CustomPreSchedulingPasses(CustomGraphPass):
 
         if logger.isEnabledFor(logging.INFO):
             logger.info("AFTER PRE-SCHEDULING\n%s", _format_operations(operations))
+        elapsed = time.perf_counter() - start
+        if PRJPT_DEBUG:
+            print(f"PROFILING - Finished custom pre-scheduling passes in {elapsed:.9f} seconds.")
 
     def uuid(self) -> Optional[Any]:
         files = [
